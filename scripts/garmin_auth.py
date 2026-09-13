@@ -14,6 +14,58 @@ from garminconnect import Garmin
 TOKENSTORE = os.path.expanduser("~/.garminconnect")
 
 
+def probe_api() -> str:
+    """Interroga lo stesso endpoint che fa fallire garth e riporta cosa risponde
+    davvero Garmin: status, tipo di contenuto e inizio del corpo.
+
+    Serve a distinguere un token non valido (risposta JSON di errore) da un
+    blocco sull'IP (pagina HTML o corpo vuoto). Non stampa mai il token.
+    """
+    token = os.environ.get("GARMIN_TOKEN", "").strip()
+    if not token:
+        return "Sonda non eseguita: GARMIN_TOKEN non presente."
+
+    try:
+        probe = Garmin()
+        probe.garth.loads(token)
+    except Exception as e:
+        return (f"SONDA: il token non è decodificabile ({type(e).__name__}: {e})\n"
+                "   -> il valore nel secret è corrotto: ricopialo per intero.")
+
+    # request() restituisce la risposta grezza e gestisce da sé il rinnovo del
+    # token, quindi replica esattamente il percorso che fallisce in connectapi().
+    try:
+        r = probe.garth.request("GET", "connectapi",
+                                "/userprofile-service/socialProfile", api=True)
+    except Exception as e:
+        return f"SONDA: nessuna risposta ({type(e).__name__}: {e})"
+
+    ctype = r.headers.get("Content-Type", "?")
+    out = ["SONDA sull'endpoint che fa fallire garth:",
+           f"   HTTP {r.status_code} · Content-Type: {ctype} · {len(r.content)} byte"]
+
+    # I log di un repository pubblico sono leggibili da chiunque: il corpo si
+    # stampa solo quando NON è JSON valido, cioè nel caso che interessa
+    # diagnosticare. Una risposta valida contiene dati personali e resta nascosta.
+    try:
+        r.json()
+        out.append("   Corpo: JSON valido (non mostrato: contiene dati personali)")
+        preview = ""
+    except Exception:
+        preview = r.text[:200].replace("\n", " ")
+        out.append(f"   Corpo (primi 200 caratteri): {preview!r}")
+
+    if "html" in ctype.lower() or preview.lstrip().startswith("<"):
+        out += ["   -> Garmin risponde HTML invece che JSON: è una pagina di blocco.",
+                "      Il traffico dal datacenter di GitHub viene filtrato."]
+    elif not r.content:
+        out += ["   -> Risposta vuota: tipico del filtraggio per indirizzo IP,",
+                "      perché un token scaduto darebbe un errore JSON esplicito."]
+    elif r.status_code in (401, 403):
+        out.append("   -> Token rifiutato da Garmin: va rigenerato.")
+    return "\n".join(out)
+
+
 def annotate(exc: Exception, detail: str) -> None:
     """Su GitHub Actions mostra l'errore nel riquadro Annotations della pagina
     di riepilogo, così è leggibile senza aprire i log."""
@@ -45,17 +97,7 @@ def diagnose_failure(exc: Exception) -> str:
         "=" * 64,
     ]
 
-    try:
-        import urllib.request
-        req = urllib.request.Request(
-            "https://connect.garmin.com/signin",
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            probe = f"raggiungibile (HTTP {r.status})"
-    except Exception as pe:
-        probe = f"NON raggiungibile ({type(pe).__name__}: {pe})"
-    lines.append(f"Raggiungibilità di connect.garmin.com da qui: {probe}")
+    lines.append(probe_api())
 
     if status in (401, 403):
         lines += [
