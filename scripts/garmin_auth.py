@@ -15,6 +15,69 @@ from garminconnect import Garmin
 TOKENSTORE = os.path.expanduser("~/.garminconnect")
 
 
+def annotate(exc: Exception, detail: str) -> None:
+    """Su GitHub Actions mostra l'errore nel riquadro Annotations della pagina
+    di riepilogo, così è leggibile senza aprire i log."""
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    title = f"Garmin ha rifiutato la connessione (HTTP {status})" if status \
+        else f"Autenticazione Garmin fallita ({type(exc).__name__})"
+    body = detail.replace("\r", "").replace("\n", "%0A")
+    print(f"::error title={title}::{body}", flush=True)
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a") as fh:
+            fh.write(f"## Errore di autenticazione Garmin\n\n```\n{detail}\n```\n")
+
+
+def diagnose_failure(exc: Exception) -> str:
+    """Distingue un token scaduto da un blocco di Garmin sull'IP del runner.
+
+    Garmin filtra spesso il traffico proveniente dai datacenter cloud: in quel
+    caso lo stesso token che funziona da casa viene rifiutato in CI.
+    """
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    lines = [
+        "=" * 64,
+        f"ERRORE DI AUTENTICAZIONE GARMIN: {type(exc).__name__}",
+        f"Messaggio: {exc}",
+        f"HTTP status: {status if status else 'nessuno (errore non HTTP)'}",
+        "=" * 64,
+    ]
+
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "https://connect.garmin.com/signin",
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            probe = f"raggiungibile (HTTP {r.status})"
+    except Exception as pe:
+        probe = f"NON raggiungibile ({type(pe).__name__}: {pe})"
+    lines.append(f"Raggiungibilità di connect.garmin.com da qui: {probe}")
+
+    if status in (401, 403):
+        lines += [
+            "",
+            "Status 401/403 con un token che funziona dal tuo computer significa",
+            "quasi sempre che Garmin sta bloccando l'indirizzo IP del runner:",
+            "i server di GitHub Actions stanno in datacenter, e Garmin filtra",
+            "quel traffico. Non è un problema del token né della configurazione.",
+            "",
+            "In questo caso la sincronizzazione va spostata sul tuo Mac.",
+        ]
+    else:
+        lines += [
+            "",
+            "Se il token è scaduto, rigeneralo sul Mac con:",
+            "  python scripts/export_token.py --file",
+            "e aggiorna il secret GARMIN_TOKEN.",
+        ]
+    return "\n".join(lines)
+
+
 def get_client() -> Garmin:
     # In CI il token arriva da una variabile d'ambiente (GitHub Secret).
     env_token = os.environ.get("GARMIN_TOKEN", "").strip()
@@ -34,12 +97,9 @@ def get_client() -> Garmin:
             client.display_name = client.garth.profile["displayName"]
             client.full_name = client.garth.profile["fullName"]
         except Exception as e:
-            raise SystemExit(
-                f"ERRORE: il token c'è ma Garmin lo rifiuta ({type(e).__name__}: {e}).\n"
-                "Di solito significa che è scaduto. Rigeneralo sul Mac con:\n"
-                "  python scripts/export_token.py --file\n"
-                "e aggiorna il secret GARMIN_TOKEN."
-            )
+            msg = diagnose_failure(e)
+            annotate(e, msg)
+            raise SystemExit(msg)
         print(f"Autenticato come {client.full_name} (token da GARMIN_TOKEN)")
         return client
 
