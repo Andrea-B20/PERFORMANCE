@@ -1,2 +1,5 @@
-garminconnect
-cryptography
+# Versioni fissate: in CI un garth più recente aveva spostato garth.exc
+# e il workflow falliva all'import. Sono le versioni verificate in locale.
+garminconnect==0.2.8
+garth==0.4.47
+cryptography>=42,<51

@@ -9,7 +9,6 @@ import getpass
 import os
 import sys
 
-from garth.exc import GarthException
 from garminconnect import Garmin
 
 TOKENSTORE = os.path.expanduser("~/.garminconnect")
@@ -108,7 +107,7 @@ def get_client() -> Garmin:
         client.login(TOKENSTORE)
         print(f"Autenticato come {client.full_name} (token riusato da {TOKENSTORE})")
         return client
-    except (FileNotFoundError, GarthException, Exception):
+    except Exception:
         pass
 
     if not sys.stdin.isatty():

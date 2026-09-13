@@ -100,8 +100,10 @@ def bedtime_hours(dto):
     ms = dto.get("sleepStartTimestampLocal")
     if not ms:
         return None
-    from datetime import datetime
-    b = datetime.utcfromtimestamp(ms / 1000)
+    # Garmin codifica l'ora locale come epoch: va letta come UTC e resa naive
+    # per ottenere l'orologio da parete. (utcfromtimestamp è deprecata in 3.12.)
+    from datetime import datetime, timezone
+    b = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).replace(tzinfo=None)
     h = b.hour + b.minute / 60
     return h + 24 if h < 12 else h
 
