@@ -1,112 +1,119 @@
-# Pubblicazione del sito — istruzioni
+# Come funziona
 
-Tre passaggi, una volta sola. Dopo, il report si aggiorna da solo ogni mattina.
-
----
-
-## 1. Repository — già fatto
-
-Il codice è già online su <https://github.com/Andrea-B20/PERFORMANCE>:
-17 file, solo script. Nessun dato, mai.
-
-> Il repository è pubblico perché Pages non funziona sui privati con il piano
-> gratuito. Non è un problema: `.gitignore` tiene fuori `data/`, `site/` e i
-> report in chiaro, e l'unico file pubblicato contiene i dati **cifrati**.
+Ogni mattina alle 08:00 il Mac scarica i dati da Garmin, ricalcola l'analisi,
+cifra tutto e pubblica il sito. Tu apri la pagina e inserisci la passphrase.
 
 ---
 
-## 2. Imposta i due secret
+## Perché la sincronizzazione gira sul Mac e non su GitHub
 
-Sul repository: **Settings → Secrets and variables → Actions → New repository secret**.
+Il primo tentativo usava GitHub Actions, ma non poteva funzionare.
 
-### `GARMIN_TOKEN`
+Il token Garmin è in realtà una coppia: uno di lunga durata (OAuth1) e uno
+di sessione (OAuth2) che vale circa un'ora. A ogni esecuzione la libreria
+deve riscambiare il primo per ottenere il secondo, e **quell'endpoint è
+protetto contro il traffico automatizzato**: dai server di GitHub risponde
+con un corpo non-JSON, quindi lo scambio fallisce sempre.
 
-Genera il token e mandalo negli appunti (non viene mai mostrato a schermo):
+Non era un problema di token o di configurazione: non funzionerebbe con
+nessun token. Dal tuo Mac, con il tuo indirizzo IP, lo stesso identico
+token funziona senza problemi.
+
+Conseguenza pratica: **il report si aggiorna solo se il Mac si accende in
+giornata.** Se resta spento, al risveglio successivo launchd recupera
+l'esecuzione mancata e il report si allinea.
+
+---
+
+## L'unico passaggio che resta da fare
+
+**Settings → Pages → Source: "Deploy from a branch" → Branch: `main` → Cartella: `/docs`** → Save
+
+<https://github.com/Andrea-B20/PERFORMANCE/settings/pages>
+
+Dopo un paio di minuti il sito è online:
+**<https://andrea-b20.github.io/PERFORMANCE/>**
+
+---
+
+## Il giro quotidiano
+
+Il job `com.andrea.trainingcoach` è già installato e attivo. Ogni mattina:
+
+1. scarica gli ultimi dati da Garmin
+2. ricalcola analisi, rilievi e confronto con la settimana precedente
+3. cifra tutto con AES-256-GCM
+4. fa commit e push di `docs/index.html`
+
+I dati grezzi restano in `data/`, escluso da git. Nel repository finisce solo
+il file cifrato.
+
+Per lanciarlo a mano quando vuoi:
 
 ```bash
-cd "/Users/andreabracci/TRAINING COACH" && source venv/bin/activate && python scripts/export_token.py
+cd "/Users/andreabracci/TRAINING COACH" && ./publish.sh
 ```
 
-Incolla il contenuto degli appunti nel secret chiamato `GARMIN_TOKEN`.
-
-Vale circa un anno, poi va rigenerato con lo stesso comando. Se il workflow inizia
-a fallire con errori di autenticazione, è questo il motivo.
-
-### `SITE_PASSPHRASE`
-
-La passphrase con cui sbloccherai il sito. Scegline una lunga e sceglila bene:
-
-- **non è recuperabile** — non esiste un "password dimenticata"
-- se la perdi, basta cambiare il secret: al giro successivo il sito è ricifrato con la nuova
-- usane una diversa da quelle che usi altrove, e salvala nel tuo gestore di password
-
 ---
 
-## 3. Lancia il primo giro
+## La passphrase
 
-**Actions → Report giornaliero → Run workflow.**
-
-Pages si attiva da sola al primo giro, non devi toccare Settings → Pages.
-
-Il primo giro dura qualche minuto (scarica 120 giorni). Quelli successivi durano
-meno di un minuto, perché i dati già scaricati restano nella cache di Actions.
-
-Al termine il sito è su `https://andrea-b20.github.io/PERFORMANCE/`.
-
----
-
-## Come funziona ogni giorno
-
-Alle **08:10** e alle **12:10** italiane (due passaggi, così se sincronizzi l'orologio
-tardi il report si aggiorna comunque):
-
-1. Actions scarica gli ultimi dati da Garmin con il token
-2. Ricalcola analisi, rilievi e confronto con la settimana precedente
-3. Cifra tutto con AES-256-GCM usando la passphrase
-4. Pubblica la pagina su GitHub Pages
-
-I dati grezzi restano nella cache di Actions e sul tuo Mac. Nel repository non
-entrano mai. Sul sito pubblicato c'è solo il blob cifrato.
-
----
-
-## Cosa vedi la mattina
-
-In cima: **prontezza di oggi** e l'indicazione operativa (riposo / facile / media /
-via libera). Sotto: **"Sto migliorando?"**, il confronto fra gli ultimi 7 giorni e i
-7 precedenti su dieci indicatori — è la sezione che risponde alla domanda nel tempo.
-
----
-
-## Comandi utili
-
-Aggiornare tutto in locale (dashboard + referto):
+Sta nel Portachiavi di macOS, non su disco. Per cambiarla:
 
 ```bash
-cd "/Users/andreabracci/TRAINING COACH" && ./update_dashboard.sh
+security add-generic-password -a "$USER" -s TRAINING_COACH_PASSPHRASE -w -U
 ```
 
-Vedere il sito cifrato in locale prima di pubblicarlo — serve `localhost`, perché la
-decifratura del browser richiede una connessione sicura e da `file://` non funziona:
+Poi rilancia `./publish.sh`: il sito viene ricifrato con quella nuova.
+
+Se la dimentichi non è recuperabile, ma basta cambiarla così: i dati vengono
+rigenerati da Garmin a ogni giro, quindi non si perde niente.
+
+---
+
+## Il token Garmin
+
+Vale circa un anno. Quando scade, `publish.sh` fallisce con un messaggio
+esplicito. Per rigenerarlo basta rifare il login:
 
 ```bash
-cd "/Users/andreabracci/TRAINING COACH" && source venv/bin/activate && SITE_PASSPHRASE="la-tua-passphrase" python scripts/build_site.py && python3 -m http.server 8787 --directory site
+cd "/Users/andreabracci/TRAINING COACH" && source venv/bin/activate && python scripts/fetch_data.py --days 7
 ```
 
-Poi apri <http://localhost:8787>.
+Ti chiederà email e password una volta sola e riscriverà il token in
+`~/.garminconnect`.
 
 ---
 
 ## Se qualcosa non va
 
-**Il workflow fallisce sull'autenticazione** — il token è scaduto: rigeneralo con
-`export_token.py` e aggiorna il secret.
+Il registro di ogni esecuzione è in `logs/publish.log`:
+
+```bash
+tail -40 "/Users/andreabracci/TRAINING COACH/logs/publish.log"
+```
 
 **La pagina dice "passphrase errata" ma è giusta** — stai aprendo il file da
-`file://`. Serve `https://` (GitHub Pages) o `http://localhost`.
+`file://`. La decifratura richiede una connessione sicura: usa l'indirizzo
+`https://andrea-b20.github.io/PERFORMANCE/`.
 
-**Il report mostra dati vecchi** — l'orologio non aveva ancora sincronizzato al
-momento del giro. Il passaggio delle 12:10 dovrebbe recuperare; in alternativa
-lancia il workflow a mano da Actions.
+**Il report è fermo a ieri** — il Mac non si è acceso, oppure l'orologio non
+aveva sincronizzato. Lancia `./publish.sh` a mano.
 
-**Voglio togliere tutto** — cancella il repository: i dati restano solo sul tuo Mac.
+**Voglio disattivare l'aggiornamento automatico:**
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.andrea.trainingcoach.plist
+```
+
+Per riattivarlo, `load` al posto di `unload`.
+
+---
+
+## Vedere il sito in locale senza pubblicarlo
+
+```bash
+cd "/Users/andreabracci/TRAINING COACH" && python3 -m http.server 8787 --directory docs
+```
+
+Poi <http://localhost:8787> (serve `localhost`, non `file://`).
