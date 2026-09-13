@@ -18,7 +18,7 @@ from build_report import TRAFFIC, WEEK, DISCLAIMER, build_plan, build_kpi_table
 from crypto_payload import encrypt
 
 ROOT = Path(__file__).parent.parent
-SITE = ROOT / "site"
+SITE = ROOT / "docs"
 
 
 def main():

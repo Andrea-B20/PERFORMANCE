@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.andrea.trainingcoach</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/andreabracci/TRAINING COACH/publish.sh</string>
+  </array>
+
+  <!-- Ogni mattina alle 08:00. Se il Mac è spento o sospeso a quell'ora,
+       launchd esegue il job al primo risveglio utile. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>8</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/andreabracci/TRAINING COACH</string>
+
+  <key>StandardOutPath</key>
+  <string>/Users/andreabracci/TRAINING COACH/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/andreabracci/TRAINING COACH/logs/launchd.err.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
