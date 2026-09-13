@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Garmin Dashboard</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --tooltip-bg:     #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --tooltip-bg:     #232322;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header.top { margin-bottom: 24px; }
+  header.top h1 { font-size: 22px; margin: 0 0 4px; }
+  header.top .sub { color: var(--text-secondary); font-size: 13px; }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .tile .value { font-size: 24px; font-weight: 600; line-height: 1.1; }
+  .tile .value .unit { font-size: 13px; font-weight: 400; color: var(--text-secondary); margin-left: 2px; }
+
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 16px 12px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 4px; }
+  .card .card-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+
+  .chart-wrap { position: relative; }
+  .chart-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .axis-label { fill: var(--text-muted); font-size: 10px; }
+  .hover-line { stroke: var(--baseline); stroke-width: 1; stroke-dasharray: 2 2; display: none; }
+  .hover-dot { display: none; }
+  .bar-rect { transition: opacity .1s; }
+  .bar-rect:hover { opacity: 0.75; }
+
+  .chart-tooltip {
+    position: absolute;
+    top: 8px;
+    background: var(--tooltip-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    pointer-events: none;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    white-space: nowrap;
+    z-index: 5;
+  }
+  .tt-date { color: var(--text-secondary); font-size: 11px; margin-bottom: 4px; }
+  .tt-row { display: flex; align-items: center; gap: 6px; }
+  .tt-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+  .legend-item { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .empty-note { color: var(--text-muted); font-size: 13px; padding: 20px 0; text-align: center; }
+
+  .table-section { margin-top: 8px; }
+  .table-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .table-toolbar select {
+    background: var(--surface-1); color: var(--text-primary);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font-size: 13px;
+  }
+  .table-scroll { overflow-x: auto; }
+  table.activities { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+  table.activities th, table.activities td {
+    text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums;
+  }
+  table.activities th { color: var(--text-secondary); font-weight: 500; font-size: 12px; }
+
+  footer.foot { margin-top: 30px; color: var(--text-muted); font-size: 11px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <h1>Garmin Dashboard</h1>
+    <div class="sub" id="header-sub"></div>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="charts">
+    <div class="card"><h2>Passi giornalieri</h2><div class="card-sub">Ultimi giorni</div><div id="chart-steps"></div></div>
+    <div class="card"><h2>Frequenza cardiaca a riposo</h2><div class="card-sub">bpm</div><div id="chart-rhr"></div></div>
+    <div class="card"><h2>Punteggio sonno</h2><div class="card-sub">0–100</div><div id="chart-sleepscore"></div></div>
+    <div class="card"><h2>Fasi del sonno</h2><div class="card-sub">ore per notte</div><div id="chart-sleepstages"></div></div>
+    <div class="card"><h2>Body Battery</h2><div class="card-sub">carica vs consumo giornaliero</div><div id="chart-bb"></div></div>
+    <div class="card"><h2>Stress medio</h2><div class="card-sub">0–100</div><div id="chart-stress"></div></div>
+    <div class="card" id="card-weight"><h2>Peso corporeo</h2><div class="card-sub">kg</div><div id="chart-weight"></div></div>
+  </div>
+
+  <div class="card table-section">
+    <h2>Attività</h2>
+    <div class="table-toolbar">
+      <label class="card-sub" for="type-filter">Filtra per tipo:</label>
+      <select id="type-filter"></select>
+    </div>
+    <div class="table-scroll">
+      <table class="activities">
+        <thead>
+          <tr>
+            <th>Data</th><th>Attività</th><th>Tipo</th><th>Durata</th>
+            <th>Distanza</th><th>Calorie</th><th>FC media</th><th>FC max</th>
+          </tr>
+        </thead>
+        <tbody id="activities-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="foot">Generato localmente il <span id="gen-date"></span> — dati Garmin Connect, nessun dato inviato a terzi.</footer>
+</div>
+
+<script>
+const DATA = __DATA_JSON__;
+
+const DARK = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const HUE = {
+  blue:    DARK ? '#3987e5' : '#2a78d6',
+  orange:  DARK ? '#d95926' : '#eb6834',
+  aqua:    DARK ? '#199e70' : '#1baf7a',
+  yellow:  DARK ? '#c98500' : '#eda100',
+  magenta: DARK ? '#d55181' : '#e87ba4',
+  green:   '#008300',
+  violet:  DARK ? '#9085e9' : '#4a3aa7',
+  red:     DARK ? '#e66767' : '#e34948',
+};
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function shortDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  let nice;
+  if (norm <= 1) nice = 1; else if (norm <= 2) nice = 2; else if (norm <= 5) nice = 5; else nice = 10;
+  return nice * mag;
+}
+
+function emptyNote(container, text) {
+  const div = document.createElement('div');
+  div.className = 'empty-note';
+  div.textContent = text;
+  container.appendChild(div);
+}
+
+function lineChart(container, dates, series, opts) {
+  opts = opts || {};
+  const yFormat = opts.yFormat || (v => Math.round(v));
+  const unitSuffix = opts.unitSuffix || '';
+  const hasData = series.some(s => s.data.some(v => v != null));
+  if (!hasData || dates.length === 0) { emptyNote(container, 'Nessun dato disponibile'); return; }
+
+  const width = 800, height = 220;
+  const pad = { t: 16, r: 14, b: 26, l: 40 };
+  const innerW = width - pad.l - pad.r, innerH = height - pad.t - pad.b;
+
+  const allVals = series.flatMap(s => s.data).filter(v => v != null);
+  const rawMax = Math.max(...allVals, 0);
+  const maxV = niceMax(rawMax || 1);
+  const minV = 0;
+  const n = dates.length;
+  const x = i => pad.l + (n <= 1 ? innerW / 2 : i * (innerW / (n - 1)));
+  const y = v => pad.t + innerH - ((v - minV) / (maxV - minV || 1)) * innerH;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart-svg' });
+
+  const gridSteps = 4;
+  for (let g = 0; g <= gridSteps; g++) {
+    const gv = minV + (maxV - minV) * g / gridSteps;
+    const gy = y(gv);
+    svg.appendChild(svgEl('line', { x1: pad.l, x2: width - pad.r, y1: gy, y2: gy, class: 'gridline' }));
+    const lbl = svgEl('text', { x: pad.l - 6, y: gy + 3, class: 'axis-label', 'text-anchor': 'end' });
+    lbl.textContent = yFormat(gv);
+    svg.appendChild(lbl);
+  }
+
+  const tickEvery = Math.max(1, Math.round(n / 6));
+  for (let i = 0; i < n; i += tickEvery) {
+    const lbl = svgEl('text', { x: x(i), y: height - 8, class: 'axis-label', 'text-anchor': 'middle' });
+    lbl.textContent = shortDate(dates[i]);
+    svg.appendChild(lbl);
+  }
+
+  series.forEach(s => {
+    let d = '', started = false, count = 0;
+    s.data.forEach((v, i) => {
+      if (v == null) { started = false; return; }
+      d += (started ? 'L' : 'M') + x(i) + ',' + y(v) + ' ';
+      started = true;
+      count++;
+    });
+    svg.appendChild(svgEl('path', {
+      d: d.trim(), fill: 'none', stroke: s.color, 'stroke-width': 2,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+    }));
+    if (count === 1) {
+      const i0 = s.data.findIndex(v => v != null);
+      svg.appendChild(svgEl('circle', { cx: x(i0), cy: y(s.data[i0]), r: 4, fill: s.color }));
+    }
+  });
+
+  const hoverLine = svgEl('line', { class: 'hover-line', y1: pad.t, y2: height - pad.b, x1: -100, x2: -100 });
+  svg.appendChild(hoverLine);
+  const hoverDots = series.map(s => {
+    const c = svgEl('circle', { r: 4, fill: s.color, stroke: 'var(--surface-1)', 'stroke-width': 2, class: 'hover-dot' });
+    svg.appendChild(c);
+    return c;
+  });
+
+  const overlay = svgEl('rect', { x: pad.l, y: pad.t, width: innerW, height: innerH, fill: 'transparent' });
+  svg.appendChild(overlay);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-wrap';
+  wrap.appendChild(svg);
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chart-tooltip';
+  tooltip.style.display = 'none';
+  wrap.appendChild(tooltip);
+
+  overlay.addEventListener('mousemove', e => {
+    const rect = svg.getBoundingClientRect();
+    const scale = width / rect.width;
+    const svgX = (e.clientX - rect.left) * scale;
+    let i = Math.round((svgX - pad.l) / (innerW / (n - 1 || 1)));
+    i = Math.max(0, Math.min(n - 1, i));
+    hoverLine.setAttribute('x1', x(i)); hoverLine.setAttribute('x2', x(i)); hoverLine.style.display = 'block';
+    let html = `<div class="tt-date">${dates[i]}</div>`;
+    series.forEach((s, si) => {
+      const v = s.data[i];
+      const dot = hoverDots[si];
+      if (v == null) { dot.style.display = 'none'; }
+      else { dot.style.display = 'block'; dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(v)); }
+      html += `<div class="tt-row"><span class="tt-dot" style="background:${s.color}"></span>${s.name}: <b>${v == null ? '—' : yFormat(v) + unitSuffix}</b></div>`;
+    });
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    const leftPct = (x(i) / width) * 100;
+    if (leftPct > 60) { tooltip.style.right = `${100 - leftPct}%`; tooltip.style.left = 'auto'; }
+    else { tooltip.style.left = `${leftPct}%`; tooltip.style.right = 'auto'; }
+  });
+  overlay.addEventListener('mouseleave', () => {
+    hoverLine.style.display = 'none';
+    hoverDots.forEach(d => d.style.display = 'none');
+    tooltip.style.display = 'none';
+  });
+
+  container.appendChild(wrap);
+  if (series.length > 1) {
+    const legend = document.createElement('div');
+    legend.className = 'chart-legend';
+    legend.innerHTML = series.map(s => `<span class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.name}</span>`).join('');
+    container.appendChild(legend);
+  }
+}
+
+function barChart(container, dates, data, color, opts) {
+  opts = opts || {};
+  const yFormat = opts.yFormat || (v => Math.round(v));
+  const unitSuffix = opts.unitSuffix || '';
+  const hasData = data.some(v => v != null);
+  if (!hasData || dates.length === 0) { emptyNote(container, 'Nessun dato disponibile'); return; }
+
+  const width = 800, height = 220;
+  const pad = { t: 16, r: 14, b: 26, l: 40 };
+  const innerW = width - pad.l - pad.r, innerH = height - pad.t - pad.b;
+  const maxV = niceMax(Math.max(...data.filter(v => v != null), 0) || 1);
+  const n = dates.length;
+  const slot = innerW / n;
+  const barW = Math.max(2, Math.min(22, slot * 0.6));
+  const x = i => pad.l + i * slot + slot / 2;
+  const y = v => pad.t + innerH - (v / maxV) * innerH;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart-svg' });
+
+  for (let g = 0; g <= 4; g++) {
+    const gv = maxV * g / 4;
+    const gy = y(gv);
+    svg.appendChild(svgEl('line', { x1: pad.l, x2: width - pad.r, y1: gy, y2: gy, class: 'gridline' }));
+    const lbl = svgEl('text', { x: pad.l - 6, y: gy + 3, class: 'axis-label', 'text-anchor': 'end' });
+    lbl.textContent = yFormat(gv);
+    svg.appendChild(lbl);
+  }
+  const tickEvery = Math.max(1, Math.round(n / 6));
+  for (let i = 0; i < n; i += tickEvery) {
+    const lbl = svgEl('text', { x: x(i), y: height - 8, class: 'axis-label', 'text-anchor': 'middle' });
+    lbl.textContent = shortDate(dates[i]);
+    svg.appendChild(lbl);
+  }
+
+  const bars = [];
+  data.forEach((v, i) => {
+    if (v == null) return;
+    const barH = Math.max(0, innerH - (y(v) - pad.t));
+    const rect = svgEl('rect', {
+      x: x(i) - barW / 2, y: y(v), width: barW, height: barH,
+      fill: color, rx: 3, ry: 3, class: 'bar-rect',
+    });
+    svg.appendChild(rect);
+    bars.push({ el: rect, i, v });
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-wrap';
+  wrap.appendChild(svg);
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chart-tooltip';
+  tooltip.style.display = 'none';
+  wrap.appendChild(tooltip);
+
+  bars.forEach(b => {
+    b.el.addEventListener('mousemove', e => {
+      const rect = svg.getBoundingClientRect();
+      tooltip.innerHTML = `<div class="tt-date">${dates[b.i]}</div><div class="tt-row"><b>${yFormat(b.v)}${unitSuffix}</b></div>`;
+      tooltip.style.display = 'block';
+      const leftPct = (x(b.i) / width) * 100;
+      if (leftPct > 60) { tooltip.style.right = `${100 - leftPct}%`; tooltip.style.left = 'auto'; }
+      else { tooltip.style.left = `${leftPct}%`; tooltip.style.right = 'auto'; }
+    });
+    b.el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  });
+
+  container.appendChild(wrap);
+}
+
+function stackedBarChart(container, dates, segments, opts) {
+  opts = opts || {};
+  const yFormat = opts.yFormat || (v => v.toFixed(1));
+  const unitSuffix = opts.unitSuffix || '';
+  const totals = dates.map((_, i) => segments.reduce((sum, s) => sum + (s.data[i] || 0), 0));
+  if (totals.every(t => !t)) { emptyNote(container, 'Nessun dato disponibile'); return; }
+
+  const width = 800, height = 220;
+  const pad = { t: 16, r: 14, b: 26, l: 40 };
+  const innerW = width - pad.l - pad.r, innerH = height - pad.t - pad.b;
+  const maxV = niceMax(Math.max(...totals, 0) || 1);
+  const n = dates.length;
+  const slot = innerW / n;
+  const barW = Math.max(2, Math.min(22, slot * 0.6));
+  const x = i => pad.l + i * slot + slot / 2;
+  const y = v => pad.t + innerH - (v / maxV) * innerH;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart-svg' });
+  for (let g = 0; g <= 4; g++) {
+    const gv = maxV * g / 4;
+    const gy = y(gv);
+    svg.appendChild(svgEl('line', { x1: pad.l, x2: width - pad.r, y1: gy, y2: gy, class: 'gridline' }));
+    const lbl = svgEl('text', { x: pad.l - 6, y: gy + 3, class: 'axis-label', 'text-anchor': 'end' });
+    lbl.textContent = yFormat(gv);
+    svg.appendChild(lbl);
+  }
+  const tickEvery = Math.max(1, Math.round(n / 6));
+  for (let i = 0; i < n; i += tickEvery) {
+    const lbl = svgEl('text', { x: x(i), y: height - 8, class: 'axis-label', 'text-anchor': 'middle' });
+    lbl.textContent = shortDate(dates[i]);
+    svg.appendChild(lbl);
+  }
+
+  const GAP = 1;
+  dates.forEach((_, i) => {
+    let acc = 0;
+    segments.forEach(s => {
+      const v = s.data[i] || 0;
+      if (v <= 0) return;
+      const yTop = y(acc + v), yBot = y(acc);
+      const h = Math.max(0, yBot - yTop - GAP);
+      svg.appendChild(svgEl('rect', {
+        x: x(i) - barW / 2, y: yTop, width: barW, height: h,
+        fill: s.color, rx: 2, ry: 2, class: 'bar-rect',
+      }));
+      acc += v;
+    });
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'chart-wrap';
+  wrap.appendChild(svg);
+  const tooltip = document.createElement('div');
+  tooltip.className = 'chart-tooltip';
+  tooltip.style.display = 'none';
+  wrap.appendChild(tooltip);
+
+  const overlay = svgEl('rect', { x: pad.l, y: pad.t, width: innerW, height: innerH, fill: 'transparent' });
+  svg.appendChild(overlay);
+  overlay.addEventListener('mousemove', e => {
+    const rect = svg.getBoundingClientRect();
+    const scale = width / rect.width;
+    const svgX = (e.clientX - rect.left) * scale;
+    let i = Math.floor((svgX - pad.l) / slot);
+    i = Math.max(0, Math.min(n - 1, i));
+    let html = `<div class="tt-date">${dates[i]}</div>`;
+    segments.forEach(s => {
+      const v = s.data[i];
+      html += `<div class="tt-row"><span class="tt-dot" style="background:${s.color}"></span>${s.name}: <b>${v ? yFormat(v) + unitSuffix : '—'}</b></div>`;
+    });
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    const leftPct = (x(i) / width) * 100;
+    if (leftPct > 60) { tooltip.style.right = `${100 - leftPct}%`; tooltip.style.left = 'auto'; }
+    else { tooltip.style.left = `${leftPct}%`; tooltip.style.right = 'auto'; }
+  });
+  overlay.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+  container.appendChild(wrap);
+  const legend = document.createElement('div');
+  legend.className = 'chart-legend';
+  legend.innerHTML = segments.map(s => `<span class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.name}</span>`).join('');
+  container.appendChild(legend);
+}
+
+function renderTiles(summary) {
+  const tiles = [
+    { label: 'Giorni analizzati', value: summary.days, unit: '' },
+    { label: 'Passi medi/giorno', value: summary.avgSteps, unit: '' },
+    { label: 'FC riposo media', value: summary.avgRestingHR, unit: 'bpm' },
+    { label: 'Punteggio sonno medio', value: summary.avgSleepScore, unit: '/100' },
+    { label: 'Sonno medio', value: summary.avgSleepHours, unit: 'h' },
+    { label: 'Stress medio', value: summary.avgStress, unit: '/100' },
+    { label: 'Attività totali', value: summary.totalActivities, unit: '' },
+    { label: 'Peso attuale', value: summary.currentWeightKg, unit: 'kg' },
+  ];
+  const el = document.getElementById('tiles');
+  tiles.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'tile';
+    div.innerHTML = `<div class="label">${t.label}</div><div class="value">${t.value != null ? t.value : '—'}<span class="unit">${t.value != null ? t.unit : ''}</span></div>`;
+    el.appendChild(div);
+  });
+}
+
+function renderActivitiesTable(activities) {
+  const tbody = document.getElementById('activities-body');
+  const select = document.getElementById('type-filter');
+  const types = Array.from(new Set(activities.map(a => a.type))).sort();
+  select.innerHTML = '<option value="">Tutti i tipi</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
+
+  function draw(filterType) {
+    tbody.innerHTML = '';
+    activities
+      .filter(a => !filterType || a.type === filterType)
+      .forEach(a => {
+        const tr = document.createElement('tr');
+        const [yy, mm, ddn] = a.date.split('-');
+        tr.innerHTML = `
+          <td style="white-space:nowrap">${ddn}/${mm}/${yy}</td>
+          <td>${a.name || ''}</td>
+          <td>${a.type}</td>
+          <td>${a.durationMin != null ? a.durationMin + ' min' : '—'}</td>
+          <td>${a.distanceKm ? a.distanceKm + ' km' : '—'}</td>
+          <td>${a.calories != null ? Math.round(a.calories) : '—'}</td>
+          <td>${a.avgHR != null ? Math.round(a.avgHR) : '—'}</td>
+          <td>${a.maxHR != null ? Math.round(a.maxHR) : '—'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    if (!activities.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-note">Nessuna attività nel periodo</td></tr>';
+    }
+  }
+  select.addEventListener('change', () => draw(select.value));
+  draw('');
+}
+
+(function init() {
+  document.getElementById('header-sub').textContent =
+    `${DATA.summary.days} giorni · ultimo aggiornamento ${DATA.generatedAt.replace('T', ' ')}`;
+  document.getElementById('gen-date').textContent = DATA.generatedAt.replace('T', ' ');
+
+  renderTiles(DATA.summary);
+
+  const dates = DATA.daily.map(d => d.date);
+
+  barChart(document.getElementById('chart-steps'), dates, DATA.daily.map(d => d.steps), HUE.blue,
+    { yFormat: v => Math.round(v) });
+
+  lineChart(document.getElementById('chart-rhr'), dates,
+    [{ name: 'FC riposo', color: HUE.red, data: DATA.daily.map(d => d.restingHR) }],
+    { yFormat: v => Math.round(v), unitSuffix: ' bpm' });
+
+  lineChart(document.getElementById('chart-sleepscore'), dates,
+    [{ name: 'Punteggio sonno', color: HUE.violet, data: DATA.daily.map(d => d.sleepScore) }],
+    { yFormat: v => Math.round(v) });
+
+  stackedBarChart(document.getElementById('chart-sleepstages'), dates, [
+    { name: 'Profondo', color: HUE.blue, data: DATA.daily.map(d => d.deepSeconds ? d.deepSeconds / 3600 : 0) },
+    { name: 'Leggero', color: HUE.aqua, data: DATA.daily.map(d => d.lightSeconds ? d.lightSeconds / 3600 : 0) },
+    { name: 'REM', color: HUE.yellow, data: DATA.daily.map(d => d.remSeconds ? d.remSeconds / 3600 : 0) },
+    { name: 'Sveglio', color: HUE.red, data: DATA.daily.map(d => d.awakeSeconds ? d.awakeSeconds / 3600 : 0) },
+  ], { yFormat: v => v.toFixed(1), unitSuffix: 'h' });
+
+  lineChart(document.getElementById('chart-bb'), dates, [
+    { name: 'Carica', color: HUE.blue, data: DATA.daily.map(d => d.bbCharged) },
+    { name: 'Consumo', color: HUE.orange, data: DATA.daily.map(d => d.bbDrained) },
+  ], { yFormat: v => Math.round(v) });
+
+  lineChart(document.getElementById('chart-stress'), dates,
+    [{ name: 'Stress medio', color: HUE.orange, data: DATA.daily.map(d => d.avgStress) }],
+    { yFormat: v => Math.round(v) });
+
+  if (DATA.weight && DATA.weight.length) {
+    lineChart(document.getElementById('chart-weight'), DATA.weight.map(w => w.date),
+      [{ name: 'Peso', color: HUE.green, data: DATA.weight.map(w => w.weightKg) }],
+      { yFormat: v => v.toFixed(1), unitSuffix: ' kg' });
+  } else {
+    document.getElementById('card-weight').style.display = 'none';
+  }
+
+  renderActivitiesTable(DATA.activities);
+})();
+</script>
+</body>
+</html>

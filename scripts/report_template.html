@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Referto Tecnico — Carico, Recupero e Sonno</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:#fcfcfb; --page:#f9f9f7; --raised:#ffffff;
+    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s7:#4a3aa7; --s8:#e34948;
+    --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
+    --crit-bg:rgba(208,59,59,0.08); --warn-bg:rgba(250,178,25,0.12); --good-bg:rgba(12,163,12,0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1:#1a1a19; --page:#0d0d0d; --raised:#232322;
+      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s7:#9085e9; --s8:#e66767;
+      --crit-bg:rgba(208,59,59,0.16); --warn-bg:rgba(250,178,25,0.16); --good-bg:rgba(12,163,12,0.14);
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);
+       font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
+  .page{max-width:960px;margin:0 auto;padding:32px 20px 80px}
+
+  .doc-head{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:24px}
+  .doc-head h1{font-size:26px;margin:0 0 4px;line-height:1.2}
+  .doc-sub{font-size:15px;color:var(--ink-2);margin-bottom:8px}
+  .doc-meta{font-size:13px;color:var(--muted)}
+
+  h2.sec{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+         margin:40px 0 14px;padding-bottom:6px;border-bottom:1px solid var(--grid)}
+
+  .verdict{border-radius:12px;padding:20px 22px;margin-bottom:8px;border:1px solid var(--border)}
+  .verdict.critical{background:var(--crit-bg);border-color:var(--crit)}
+  .verdict.warning{background:var(--warn-bg);border-color:var(--warn)}
+  .verdict.ok{background:var(--good-bg);border-color:var(--good)}
+  .verdict .vl{display:flex;align-items:center;gap:9px;font-size:19px;font-weight:650;margin-bottom:8px}
+  .verdict p{margin:0;font-size:15px;color:var(--ink-2);max-width:70ch}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
+  .kpi{background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:12px 14px;
+       border-left:3px solid var(--axis)}
+  .kpi.bad{border-left-color:var(--crit)} .kpi.mid{border-left-color:var(--warn)} .kpi.ok{border-left-color:var(--good)}
+  .kpi .k{font-size:11px;color:var(--ink-2);margin-bottom:4px}
+  .kpi .v{font-size:21px;font-weight:640;line-height:1.1}
+  .kpi .v small{font-size:12px;font-weight:400;color:var(--ink-2)}
+  .kpi .t{font-size:11px;color:var(--muted);margin-top:3px}
+
+  .finding{background:var(--surface-1);border:1px solid var(--border);border-radius:11px;
+           padding:18px 20px;margin-bottom:14px;border-left:4px solid var(--axis)}
+  .finding.critical{border-left-color:var(--crit)}
+  .finding.warning{border-left-color:var(--warn)}
+  .f-top{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .badge{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+         padding:3px 8px;border-radius:5px;white-space:nowrap;flex-shrink:0;margin-top:2px}
+  .badge.critical{background:var(--crit);color:#fff}
+  .badge.warning{background:var(--warn);color:#3a2a00}
+  .f-title{font-size:17px;font-weight:620;flex:1;min-width:220px}
+  .f-cat{font-size:11px;color:var(--muted);border:1px solid var(--border);padding:2px 7px;border-radius:20px;margin-top:3px}
+  .ev{list-style:none;padding:0;margin:0 0 12px}
+  .ev li{font-size:13.5px;color:var(--ink);padding:5px 0 5px 18px;position:relative;
+         font-variant-numeric:tabular-nums;border-bottom:1px solid var(--grid)}
+  .ev li:last-child{border-bottom:none}
+  .ev li::before{content:"";position:absolute;left:4px;top:13px;width:5px;height:5px;
+                 border-radius:50%;background:var(--muted)}
+  .why{font-size:14px;color:var(--ink-2);margin:0 0 14px;max-width:75ch}
+  .why b{color:var(--ink)}
+  .actions{background:var(--page);border-radius:8px;padding:12px 14px}
+  .actions .ah{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .actions ul{margin:0;padding-left:18px}
+  .actions li{font-size:13.5px;margin-bottom:5px}
+  .actions li:last-child{margin-bottom:0}
+
+  .card{background:var(--surface-1);border:1px solid var(--border);border-radius:11px;padding:16px 18px;margin-bottom:14px}
+  .card h3{font-size:15px;margin:0 0 3px}
+  .card .sub{font-size:12.5px;color:var(--ink-2);margin-bottom:12px;max-width:75ch}
+  .chart-wrap{position:relative}
+  .chart-svg{width:100%;height:auto;display:block;overflow:visible}
+  .gridline{stroke:var(--grid);stroke-width:1}
+  .axis-label{fill:var(--muted);font-size:10px}
+  .band-label{fill:var(--muted);font-size:9px}
+  .hover-line{stroke:var(--axis);stroke-width:1;stroke-dasharray:2 2;display:none}
+  .tooltip{position:absolute;top:6px;background:var(--raised);border:1px solid var(--border);
+           border-radius:8px;padding:8px 10px;font-size:12px;pointer-events:none;
+           box-shadow:0 4px 14px rgba(0,0,0,.14);white-space:nowrap;z-index:5;display:none}
+  .tt-d{color:var(--ink-2);font-size:11px;margin-bottom:3px}
+  .tt-r{display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px}
+  .legend span.li{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block;flex-shrink:0}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:620px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--grid);vertical-align:top}
+  th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tbl-scroll{overflow-x:auto}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+  .pill.hard{background:var(--crit-bg);color:var(--crit)}
+  .pill.easy{background:var(--good-bg);color:var(--good)}
+  .pill.mid{background:var(--warn-bg);color:#8a6000}
+  @media (prefers-color-scheme: dark){ .pill.mid{color:var(--warn)} }
+  .pill.rest{background:var(--page);color:var(--muted);border:1px solid var(--border)}
+
+  .phase{border-left:3px solid var(--s1);padding:2px 0 2px 16px;margin-bottom:22px}
+  .phase h3{font-size:15.5px;margin:0 0 2px}
+  .phase .when{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .phase ul{margin:0;padding-left:18px} .phase li{font-size:13.5px;margin-bottom:5px}
+  .phase.p1{border-left-color:var(--crit)} .phase.p2{border-left-color:var(--warn)} .phase.p3{border-left-color:var(--good)}
+  .exit{font-size:12.5px;color:var(--ink-2);margin-top:9px;padding:9px 12px;background:var(--page);border-radius:7px}
+
+  .light{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+  .lt{border:1px solid var(--border);border-radius:9px;padding:13px 15px;background:var(--surface-1)}
+  .lt .r{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:5px}
+  .lt p{margin:0;font-size:12.5px;color:var(--ink-2)}
+
+  .note{font-size:12.5px;color:var(--ink-2);background:var(--surface-1);border:1px solid var(--border);
+        border-left:3px solid var(--muted);border-radius:8px;padding:13px 16px;margin-top:26px}
+  footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--grid);
+         font-size:11px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="doc-head">
+    <h1>Referto: stato di allenamento</h1>
+    <div class="doc-sub">Analisi di carico, recupero e qualità del sonno</div>
+    <div class="doc-meta" id="meta"></div>
+  </div>
+
+  <div id="verdict"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <h2 class="sec">Rilievi in ordine di priorità</h2>
+  <div id="findings"></div>
+
+  <h2 class="sec">Le prove nei dati</h2>
+
+  <div class="card">
+    <h3>Prontezza all'allenamento</h3>
+    <div class="sub">Punteggio giornaliero di Garmin (0–100). I cerchi rossi segnano i giorni in cui una
+      seduta intensa è stata svolta comunque, con prontezza in fascia rossa.</div>
+    <div id="c-readiness"></div>
+    <div class="legend">
+      <span class="li"><span class="swatch" style="background:var(--crit)"></span>0–30 rosso: riposo</span>
+      <span class="li"><span class="swatch" style="background:var(--warn)"></span>30–50: solo facile</span>
+      <span class="li"><span class="swatch" style="background:var(--good)"></span>65+: via libera all'intensità</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Ore di sonno per notte</h3>
+    <div class="sub">La linea tratteggiata è la soglia delle 7 ore. Le barre rosse sono le notti sotto le 6 ore.</div>
+    <div id="c-sleep"></div>
+  </div>
+
+  <div class="card">
+    <h3>Orario di addormentamento</h3>
+    <div class="sub">Ogni punto è una notte. La dispersione verticale misura quanto è instabile
+      il tuo ritmo circadiano: più i punti sono sparsi, più l'orologio biologico resta disallineato.</div>
+    <div id="c-bedtime"></div>
+  </div>
+
+  <div class="card">
+    <h3>Variabilità cardiaca notturna (HRV)</h3>
+    <div class="sub">La fascia grigia è la tua baseline delle prime due settimane. Un calo persistente
+      sotto la fascia indica che il sistema nervoso non sta recuperando.</div>
+    <div id="c-hrv"></div>
+  </div>
+
+  <div class="card">
+    <h3>Bilancio del carico per sistema energetico</h3>
+    <div class="sub">Confronto tra il carico accumulato nelle ultime 4 settimane e la fascia
+      target calcolata da Garmin sul tuo livello. È la fotografia più chiara dello squilibrio.</div>
+    <div id="c-balance"></div>
+    <div class="legend">
+      <span class="li"><span class="swatch" style="background:var(--axis)"></span>Fascia target</span>
+      <span class="li"><span class="swatch" style="background:var(--s1)"></span>Dentro il target</span>
+      <span class="li"><span class="swatch" style="background:var(--crit)"></span>Fuori dal target</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Distribuzione delle intensità</h3>
+    <div class="sub">Minuti trascorsi in ogni fascia cardiaca, confrontati con il modello polarizzato
+      (~80% facile / ~5% medio / ~15% intenso) usato nella preparazione di resistenza.</div>
+    <div id="c-intensity"></div>
+  </div>
+
+  <div class="card">
+    <h3>Rapporto carico acuto / cronico (ACWR)</h3>
+    <div class="sub">Quanto pesa la settimana corrente rispetto all'abitudine delle ultime 4.
+      La fascia verde (0,8–1,3) è l'intervallo in cui il carico cresce senza superare la capacità di recupero.</div>
+    <div id="c-acwr"></div>
+  </div>
+
+  <h2 class="sec">Piano di correzione</h2>
+  <div id="plan"></div>
+
+  <h2 class="sec">La regola del semaforo</h2>
+  <p style="font-size:14px;color:var(--ink-2);margin:0 0 14px;max-width:75ch">
+    Il singolo cambiamento con più impatto: <b>decidere l'allenamento la mattina, guardando la prontezza</b>,
+    invece di seguire il programma a prescindere. Nei tuoi dati la prontezza è già un ottimo predittore —
+    quando l'hai ignorata è arrivato lo stato di sovraccarico.</p>
+  <div class="light" id="light"></div>
+
+  <h2 class="sec">Settimana tipo ricostruita</h2>
+  <div class="card">
+    <div class="sub">Struttura polarizzata: stesso numero di sedute che fai già, ridistribuite.
+      Due stimoli intensi ben separati, base aerobica reintrodotta, un giorno di riposo vero.</div>
+    <div class="tbl-scroll"><table id="week"></table></div>
+  </div>
+
+  <h2 class="sec">Indicatori da tenere sotto controllo</h2>
+  <div class="card"><div class="tbl-scroll"><table id="kpitable"></table></div></div>
+
+  <div class="note" id="disclaimer"></div>
+  <footer>Referto generato localmente da dati Garmin Connect · <span id="gen"></span></footer>
+</div>
+
+<script>
+const D = __DATA_JSON__;
+const DARK = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+const C = {
+  s1: DARK?'#3987e5':'#2a78d6', s2: DARK?'#d95926':'#eb6834', s3: DARK?'#199e70':'#1baf7a',
+  s4: DARK?'#c98500':'#eda100', s7: DARK?'#9085e9':'#4a3aa7', s8: DARK?'#e66767':'#e34948',
+  good:'#0ca30c', warn:'#fab219', crit:'#d03b3b',
+  grid: DARK?'#2c2c2a':'#e1e0d9', axis: DARK?'#383835':'#c3c2b7',
+  muted:'#898781', surface: DARK?'#1a1a19':'#fcfcfb',
+};
+const NS='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const dm=iso=>iso?iso.slice(8,10)+'/'+iso.slice(5,7):'';
+const W=820, PAD={t:16,r:16,b:26,l:38};
+
+function frame(h){ const s=el('svg',{viewBox:`0 0 ${W} ${h}`,class:'chart-svg'}); return s; }
+function wrapOf(container,svg){
+  const w=document.createElement('div'); w.className='chart-wrap'; w.appendChild(svg);
+  const t=document.createElement('div'); t.className='tooltip'; w.appendChild(t);
+  container.appendChild(w); return t;
+}
+function place(tip,xPix){ const p=xPix/W*100;
+  if(p>58){tip.style.right=(100-p)+'%';tip.style.left='auto';} else {tip.style.left=p+'%';tip.style.right='auto';}
+  tip.style.display='block'; }
+function yAxis(svg,h,min,max,fmt){
+  const iH=h-PAD.t-PAD.b;
+  for(let g=0;g<=4;g++){ const v=min+(max-min)*g/4, y=PAD.t+iH-(v-min)/(max-min)*iH;
+    svg.appendChild(el('line',{x1:PAD.l,x2:W-PAD.r,y1:y,y2:y,class:'gridline'}));
+    const l=el('text',{x:PAD.l-6,y:y+3,class:'axis-label','text-anchor':'end'}); l.textContent=fmt(v); svg.appendChild(l); }
+}
+function xAxis(svg,h,dates,xf){
+  const step=Math.max(1,Math.round(dates.length/7));
+  for(let i=0;i<dates.length;i+=step){
+    const l=el('text',{x:xf(i),y:h-8,class:'axis-label','text-anchor':'middle'}); l.textContent=dm(dates[i]); svg.appendChild(l);}
+}
+
+/* ---- prontezza: bande di soglia + punti ---- */
+function readinessChart(c){
+  const dates=D.series.readinessDates, vals=D.series.readiness, h=250;
+  const iW=W-PAD.l-PAD.r, iH=h-PAD.t-PAD.b, n=dates.length;
+  const x=i=>PAD.l+(n<=1?iW/2:i*iW/(n-1)), y=v=>PAD.t+iH-v/100*iH;
+  const svg=frame(h);
+  [[0,30,C.crit,.10],[30,50,C.warn,.12],[65,100,C.good,.09]].forEach(([a,b,col,op])=>{
+    svg.appendChild(el('rect',{x:PAD.l,y:y(b),width:iW,height:y(a)-y(b),fill:col,opacity:op}));
+  });
+  yAxis(svg,h,0,100,v=>Math.round(v));
+  xAxis(svg,h,dates,x);
+  let d='',st=false;
+  vals.forEach((v,i)=>{ if(v==null){st=false;return;} d+=(st?'L':'M')+x(i)+','+y(v)+' '; st=true; });
+  svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:C.s1,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'}));
+  const bad=new Set((D.ignoredDays||[]).map(o=>o.date));
+  dates.forEach((dt,i)=>{ if(bad.has(dt)) svg.appendChild(el('circle',{cx:x(i),cy:y(vals[i]),r:5,fill:C.crit,stroke:C.surface,'stroke-width':2})); });
+  const hl=el('line',{class:'hover-line',y1:PAD.t,y2:h-PAD.b,x1:-9,x2:-9}); svg.appendChild(hl);
+  const ov=el('rect',{x:PAD.l,y:PAD.t,width:iW,height:iH,fill:'transparent'}); svg.appendChild(ov);
+  const tip=wrapOf(c,svg);
+  ov.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(), sx=(e.clientX-r.left)*(W/r.width);
+    let i=Math.round((sx-PAD.l)/(iW/(n-1||1))); i=Math.max(0,Math.min(n-1,i));
+    hl.setAttribute('x1',x(i)); hl.setAttribute('x2',x(i)); hl.style.display='block';
+    const lv=vals[i]<30?'riposo consigliato':vals[i]<50?'solo lavoro facile':vals[i]<65?'niente massimali':'via libera';
+    tip.innerHTML=`<div class="tt-d">${dates[i]}</div><div class="tt-r"><span class="dot" style="background:${C.s1}"></span>Prontezza <b>${vals[i]}/100</b></div><div class="tt-d" style="margin:3px 0 0">${lv}</div>`;
+    place(tip,x(i));
+  });
+  ov.addEventListener('mouseleave',()=>{hl.style.display='none';tip.style.display='none';});
+}
+
+/* ---- sonno: barre + soglia ---- */
+function sleepChart(c){
+  const dates=D.series.sleepDates, vals=D.series.sleepHours, h=230;
+  const iW=W-PAD.l-PAD.r, iH=h-PAD.t-PAD.b, n=dates.length, slot=iW/n;
+  const max=10, x=i=>PAD.l+i*slot+slot/2, y=v=>PAD.t+iH-v/max*iH;
+  const svg=frame(h); yAxis(svg,h,0,max,v=>v.toFixed(0)+'h'); xAxis(svg,h,dates,x);
+  const bw=Math.max(3,Math.min(18,slot*.66));
+  const bars=[];
+  vals.forEach((v,i)=>{
+    const col=v<6?C.crit:v<7?C.warn:C.s3;
+    const r=el('rect',{x:x(i)-bw/2,y:y(v),width:bw,height:iH-(y(v)-PAD.t),fill:col,rx:3,ry:3,style:'cursor:pointer'});
+    svg.appendChild(r); bars.push({r,i,v});
+  });
+  svg.appendChild(el('line',{x1:PAD.l,x2:W-PAD.r,y1:y(7),y2:y(7),stroke:C.s1,'stroke-width':2,'stroke-dasharray':'5 4'}));
+  const lb=el('text',{x:W-PAD.r,y:y(7)-6,class:'band-label','text-anchor':'end'}); lb.textContent='soglia 7h'; svg.appendChild(lb);
+  const tip=wrapOf(c,svg);
+  bars.forEach(b=>{
+    b.r.addEventListener('mousemove',()=>{
+      const rem=D.series.sleepRem[b.i];
+      tip.innerHTML=`<div class="tt-d">${dates[b.i]}</div><div class="tt-r"><b>${b.v}h</b> di sonno</div>
+        <div class="tt-d" style="margin-top:3px">REM ${rem}% · profondo ${D.series.sleepDeep[b.i]}%</div>`;
+      place(tip,x(b.i));
+    });
+    b.r.addEventListener('mouseleave',()=>tip.style.display='none');
+  });
+}
+
+/* ---- orario addormentamento: dot plot ---- */
+function bedtimeChart(c){
+  const dates=D.series.sleepDates, vals=D.series.bedtimes, h=210;
+  const iW=W-PAD.l-PAD.r, iH=h-PAD.t-PAD.b, n=dates.length;
+  const lo=21.5, hi=Math.max(27.5,...vals.filter(v=>v!=null))+.4;
+  const x=i=>PAD.l+(n<=1?iW/2:i*iW/(n-1)), y=v=>PAD.t+(v-lo)/(hi-lo)*iH;
+  const svg=frame(h);
+  for(let t=Math.ceil(lo);t<=hi;t++){
+    const yy=y(t); svg.appendChild(el('line',{x1:PAD.l,x2:W-PAD.r,y1:yy,y2:yy,class:'gridline'}));
+    const l=el('text',{x:PAD.l-6,y:yy+3,class:'axis-label','text-anchor':'end'});
+    l.textContent=String(t%24).padStart(2,'0')+':00'; svg.appendChild(l);
+  }
+  const target=23.5;
+  svg.appendChild(el('line',{x1:PAD.l,x2:W-PAD.r,y1:y(target),y2:y(target),stroke:C.s3,'stroke-width':2,'stroke-dasharray':'5 4'}));
+  const tl=el('text',{x:W-PAD.r,y:y(target)-6,class:'band-label','text-anchor':'end'}); tl.textContent='obiettivo 23:30'; svg.appendChild(tl);
+  xAxis(svg,h,dates,x);
+  const tip=wrapOf(c,svg);
+  vals.forEach((v,i)=>{
+    if(v==null)return;
+    const col=v>25?C.crit:v>24.5?C.warn:C.s3;
+    const dot=el('circle',{cx:x(i),cy:y(v),r:4.5,fill:col,style:'cursor:pointer'});
+    svg.appendChild(dot);
+    dot.addEventListener('mousemove',()=>{
+      const hh=String(Math.floor(v)%24).padStart(2,'0'), mm=String(Math.round(v%1*60)).padStart(2,'0');
+      tip.innerHTML=`<div class="tt-d">${dates[i]}</div><div class="tt-r"><span class="dot" style="background:${col}"></span>a letto alle <b>${hh}:${mm}</b></div>
+        <div class="tt-d" style="margin-top:3px">dormito ${D.series.sleepHours[i]}h</div>`;
+      place(tip,x(i));
+    });
+    dot.addEventListener('mouseleave',()=>tip.style.display='none');
+  });
+}
+
+/* ---- HRV con fascia baseline ---- */
+function hrvChart(c){
+  const dates=D.series.hrvDates, vals=D.series.hrv, h=230;
+  const iW=W-PAD.l-PAD.r, iH=h-PAD.t-PAD.b, n=dates.length;
+  const lo=Math.min(...vals)-6, hi=Math.max(...vals)+6;
+  const x=i=>PAD.l+(n<=1?iW/2:i*iW/(n-1)), y=v=>PAD.t+iH-(v-lo)/(hi-lo)*iH;
+  const svg=frame(h); yAxis(svg,h,lo,hi,v=>Math.round(v));
+  const base=D.kpi.hrvBase;
+  if(base){
+    svg.appendChild(el('rect',{x:PAD.l,y:y(base+3),width:iW,height:y(base-3)-y(base+3),fill:C.muted,opacity:.16}));
+    const bl=el('text',{x:PAD.l+4,y:y(base+3)-4,class:'band-label'}); bl.textContent='baseline '+base.toFixed(0)+' ms'; svg.appendChild(bl);
+  }
+  xAxis(svg,h,dates,x);
+  let d='',st=false;
+  vals.forEach((v,i)=>{ if(v==null){st=false;return;} d+=(st?'L':'M')+x(i)+','+y(v)+' '; st=true; });
+  svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:C.s7,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'}));
+  const hl=el('line',{class:'hover-line',y1:PAD.t,y2:h-PAD.b,x1:-9,x2:-9}); svg.appendChild(hl);
+  const ov=el('rect',{x:PAD.l,y:PAD.t,width:iW,height:iH,fill:'transparent'}); svg.appendChild(ov);
+  const tip=wrapOf(c,svg);
+  ov.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(), sx=(e.clientX-r.left)*(W/r.width);
+    let i=Math.round((sx-PAD.l)/(iW/(n-1||1))); i=Math.max(0,Math.min(n-1,i));
+    hl.setAttribute('x1',x(i)); hl.setAttribute('x2',x(i)); hl.style.display='block';
+    const dlt=base?((vals[i]/base-1)*100).toFixed(0):null;
+    tip.innerHTML=`<div class="tt-d">${dates[i]}</div><div class="tt-r"><span class="dot" style="background:${C.s7}"></span>HRV <b>${vals[i]} ms</b></div>`+
+      (dlt!==null?`<div class="tt-d" style="margin-top:3px">${dlt>0?'+':''}${dlt}% vs baseline</div>`:'');
+    place(tip,x(i));
+  });
+  ov.addEventListener('mouseleave',()=>{hl.style.display='none';tip.style.display='none';});
+}
+
+/* ---- bilancio carico: barre orizzontali con fascia target ---- */
+function balanceChart(c){
+  const b=D.trainingStatus && D.trainingStatus.balance;
+  if(!b){ c.innerHTML='<div style="color:var(--muted);font-size:13px;padding:14px 0">Dati di bilancio non disponibili</div>'; return; }
+  const rows=[
+    {n:'Anaerobico', v:b.anaerobic, lo:b.anaerobicMin, hi:b.anaerobicMax, note:'sprint e HIIT'},
+    {n:'Aerobico alto', v:b.aerobicHigh, lo:b.aerobicHighMin, hi:b.aerobicHighMax, note:'soglia, ritmo gara'},
+    {n:'Aerobico basso', v:b.aerobicLow, lo:b.aerobicLowMin, hi:b.aerobicLowMax, note:'base facile'},
+  ];
+  const h=rows.length*70+30, L=152, iW=W-L-118;
+  const max=Math.max(...rows.map(r=>Math.max(r.v,r.hi)))*1.1;
+  const halo='paint-order:stroke;stroke:var(--surface-1);stroke-width:3px;stroke-linejoin:round';
+  const svg=frame(h);
+  rows.forEach((r,i)=>{
+    const yy=26+i*70, bh=19;
+    const lb=el('text',{x:0,y:yy+11,class:'axis-label',style:'font-size:12.5px;fill:var(--ink)'}); lb.textContent=r.n; svg.appendChild(lb);
+    const nt=el('text',{x:0,y:yy+26,class:'band-label'}); nt.textContent=r.note; svg.appendChild(nt);
+    svg.appendChild(el('rect',{x:L,y:yy-3,width:iW,height:bh+6,fill:C.grid,opacity:.45,rx:4}));
+    svg.appendChild(el('rect',{x:L+r.lo/max*iW,y:yy-3,width:(r.hi-r.lo)/max*iW,height:bh+6,fill:C.axis,opacity:.75,rx:4}));
+    const inside=r.v>=r.lo&&r.v<=r.hi;
+    svg.appendChild(el('rect',{x:L,y:yy,width:r.v/max*iW,height:bh,fill:inside?C.s1:C.crit,rx:3}));
+    const vl=el('text',{x:L+iW+9,y:yy+14,class:'axis-label',style:'font-size:12.5px;font-weight:600;fill:var(--ink)'});
+    vl.textContent=Math.round(r.v); svg.appendChild(vl);
+    const pct = r.v>r.hi ? `${Math.round(r.v/r.hi*100)}% del massimo` : r.v<r.lo ? `${Math.round(r.v/r.lo*100)}% del minimo` : 'dentro il target';
+    const pl=el('text',{x:L+iW+9,y:yy+28,class:'band-label',
+                        style:`fill:${inside?'var(--muted)':C.crit};font-weight:600`});
+    pl.textContent=pct; svg.appendChild(pl);
+    const tg=el('text',{x:L+2,y:yy+34,class:'band-label',style:halo});
+    tg.textContent=`fascia target ${Math.round(r.lo)}–${Math.round(r.hi)}`; svg.appendChild(tg);
+  });
+  c.appendChild(svg);
+}
+
+/* ---- distribuzione intensità: attuale vs target ---- */
+function intensityChart(c){
+  const z=D.series.zones, tot=z.reduce((a,b)=>a+b,0);
+  const act=[{n:'Facile (Z1–Z2)',v:(z[0]+z[1])/tot*100,t:80,col:C.s3},
+             {n:'Medio (Z3)',v:z[2]/tot*100,t:5,col:C.s4},
+             {n:'Intenso (Z4–Z5)',v:(z[3]+z[4])/tot*100,t:15,col:C.s8}];
+  const h=act.length*58+26, L=126, iW=W-L-108;
+  const svg=frame(h);
+  act.forEach((r,i)=>{
+    const yy=20+i*58;
+    const lb=el('text',{x:0,y:yy+12,class:'axis-label',style:'font-size:12px;fill:var(--ink)'}); lb.textContent=r.n; svg.appendChild(lb);
+    svg.appendChild(el('rect',{x:L,y:yy,width:iW,height:16,fill:C.grid,opacity:.45,rx:3}));
+    svg.appendChild(el('rect',{x:L,y:yy,width:r.v/100*iW,height:16,fill:r.col,rx:3}));
+    const tx=L+r.t/100*iW;
+    svg.appendChild(el('line',{x1:tx,x2:tx,y1:yy-5,y2:yy+21,stroke:C.muted,'stroke-width':2}));
+    const tl=el('text',{x:tx,y:yy+33,class:'band-label','text-anchor':'middle'}); tl.textContent='target '+r.t+'%'; svg.appendChild(tl);
+    const vl=el('text',{x:L+iW+9,y:yy+13,class:'axis-label',style:'font-size:12.5px;font-weight:600;fill:var(--ink)'});
+    vl.textContent=r.v.toFixed(0)+'%  ('+Math.round(r.v/100*tot)+' min)'; svg.appendChild(vl);
+  });
+  c.appendChild(svg);
+}
+
+/* ---- ACWR con fascia ottimale ---- */
+function acwrChart(c){
+  const s=D.series.acwr.filter(o=>o.acwr!=null), h=230;
+  const dates=s.map(o=>o.date), vals=s.map(o=>o.acwr);
+  const iW=W-PAD.l-PAD.r, iH=h-PAD.t-PAD.b, n=dates.length;
+  const hi=Math.max(2.1,...vals)+.15;
+  const x=i=>PAD.l+(n<=1?iW/2:i*iW/(n-1)), y=v=>PAD.t+iH-v/hi*iH;
+  const svg=frame(h);
+  svg.appendChild(el('rect',{x:PAD.l,y:y(1.3),width:iW,height:y(.8)-y(1.3),fill:C.good,opacity:.12}));
+  svg.appendChild(el('rect',{x:PAD.l,y:PAD.t,width:iW,height:y(1.5)-PAD.t,fill:C.crit,opacity:.09}));
+  yAxis(svg,h,0,hi,v=>v.toFixed(1)); xAxis(svg,h,dates,x);
+  const g1=el('text',{x:PAD.l+5,y:y(1.05)+4,class:'band-label'}); g1.textContent='zona ottimale 0,8–1,3'; svg.appendChild(g1);
+  const g2=el('text',{x:PAD.l+5,y:y(1.5)-6,class:'band-label'}); g2.textContent='oltre 1,5: rischio sovraccarico'; svg.appendChild(g2);
+  let d='',st=false;
+  vals.forEach((v,i)=>{ d+=(st?'L':'M')+x(i)+','+y(v)+' '; st=true; });
+  svg.appendChild(el('path',{d:d.trim(),fill:'none',stroke:C.s2,'stroke-width':2,'stroke-linecap':'round','stroke-linejoin':'round'}));
+  const hl=el('line',{class:'hover-line',y1:PAD.t,y2:h-PAD.b,x1:-9,x2:-9}); svg.appendChild(hl);
+  const ov=el('rect',{x:PAD.l,y:PAD.t,width:iW,height:iH,fill:'transparent'}); svg.appendChild(ov);
+  const tip=wrapOf(c,svg);
+  ov.addEventListener('mousemove',e=>{
+    const r=svg.getBoundingClientRect(), sx=(e.clientX-r.left)*(W/r.width);
+    let i=Math.round((sx-PAD.l)/(iW/(n-1||1))); i=Math.max(0,Math.min(n-1,i));
+    hl.setAttribute('x1',x(i)); hl.setAttribute('x2',x(i)); hl.style.display='block';
+    tip.innerHTML=`<div class="tt-d">${dates[i]}</div><div class="tt-r"><span class="dot" style="background:${C.s2}"></span>ACWR <b>${vals[i].toFixed(2)}</b></div>
+      <div class="tt-d" style="margin-top:3px">acuto ${s[i].acute} · cronico ${s[i].chronic}</div>`;
+    place(tip,x(i));
+  });
+  ov.addEventListener('mouseleave',()=>{hl.style.display='none';tip.style.display='none';});
+}
+
+/* ---------- render ---------- */
+const k=D.kpi;
+document.getElementById('meta').textContent =
+  `Periodo analizzato: ${D.period.from} → ${D.period.to} (${D.period.days} giorni) · ${k.totalSessions} sedute · ${k.sleepNights} notti`;
+document.getElementById('gen').textContent = D.generatedAt.replace('T',' ');
+
+const v=D.verdict;
+const ICON={critical:'▲',warning:'●',ok:'✓'};
+document.getElementById('verdict').innerHTML =
+  `<div class="verdict ${v.level}"><div class="vl">${ICON[v.level]} ${v.label}</div><p>${v.text}</p></div>`;
+
+function kpiCard(label,val,unit,target,state){
+  return `<div class="kpi ${state}"><div class="k">${label}</div><div class="v">${val}<small>${unit||''}</small></div>
+          <div class="t">${target}</div></div>`;
+}
+document.getElementById('kpis').innerHTML = [
+  kpiCard('Sonno medio', k.sleepAvg, 'h', 'obiettivo ≥7h', k.sleepAvg<6?'bad':k.sleepAvg<7?'mid':'ok'),
+  kpiCard('Notti sotto 6h', k.sleepUnder6, '/'+k.sleepNights, 'obiettivo ≤1 a settimana', k.sleepUnder6>k.sleepNights*.3?'bad':'mid'),
+  kpiCard('Prontezza media', k.readinessAvg, '/100', `${k.readinessPoorDays} giorni sotto 40`, k.readinessAvg<40?'bad':k.readinessAvg<55?'mid':'ok'),
+  kpiCard('HRV ultimi 7gg', k.hrvRecent, ' ms', `${k.hrvDelta>0?'+':''}${k.hrvDelta}% vs baseline ${k.hrvBase}`, k.hrvDelta<-10?'bad':k.hrvDelta<-5?'mid':'ok'),
+  kpiCard('ACWR attuale', k.acwrNow, '', `picco ${k.acwrPeak} · ottimale 0,8–1,3`, k.acwrNow>1.5?'bad':k.acwrNow>1.3?'mid':'ok'),
+  kpiCard('Recupero residuo', k.recoveryHours, 'h', 'indicato dal dispositivo', k.recoveryHours>48?'bad':k.recoveryHours>24?'mid':'ok'),
+  kpiCard('HIIT a settimana', k.hiitPerWeek, '', 'sostenibile ≤3 ben distanziate', k.hiitPerWeek>3?'bad':k.hiitPerWeek>2?'mid':'ok'),
+  kpiCard('REM medio', k.remPct, '%', 'fisiologico 20–25%', k.remPct<15?'bad':k.remPct<20?'mid':'ok'),
+].join('');
+
+document.getElementById('findings').innerHTML = D.findings.map(f=>`
+  <div class="finding ${f.severity}">
+    <div class="f-top">
+      <span class="badge ${f.severity}">${f.severity==='critical'?'Critico':'Da correggere'}</span>
+      <span class="f-title">${f.title}</span>
+      <span class="f-cat">${f.category}</span>
+    </div>
+    <ul class="ev">${f.evidence.filter(Boolean).map(e=>`<li>${e}</li>`).join('')}</ul>
+    <p class="why">${f.why}</p>
+    <div class="actions"><div class="ah">Cosa fare</div><ul>${f.actions.map(a=>`<li>${a}</li>`).join('')}</ul></div>
+  </div>`).join('');
+
+readinessChart(document.getElementById('c-readiness'));
+sleepChart(document.getElementById('c-sleep'));
+bedtimeChart(document.getElementById('c-bedtime'));
+hrvChart(document.getElementById('c-hrv'));
+balanceChart(document.getElementById('c-balance'));
+intensityChart(document.getElementById('c-intensity'));
+acwrChart(document.getElementById('c-acwr'));
+
+document.getElementById('plan').innerHTML = D.plan.map(p=>`
+  <div class="phase ${p.cls}">
+    <div class="when">${p.when}</div>
+    <h3>${p.title}</h3>
+    <ul>${p.items.map(i=>`<li>${i}</li>`).join('')}</ul>
+    ${p.exit?`<div class="exit"><b>Come capire che è il momento di passare oltre:</b> ${p.exit}</div>`:''}
+  </div>`).join('');
+
+document.getElementById('light').innerHTML = D.trafficLight.map(t=>`
+  <div class="lt" style="border-left:3px solid ${t.color}">
+    <div class="r" style="color:${t.color}">${t.icon} ${t.range}</div><p>${t.what}</p></div>`).join('');
+
+document.getElementById('week').innerHTML =
+  '<thead><tr><th>Giorno</th><th>Seduta</th><th>Intensità</th><th>Durata</th><th>Note</th></tr></thead><tbody>'+
+  D.week.map(w=>`<tr><td><b>${w.d}</b></td><td>${w.s}</td><td><span class="pill ${w.cls}">${w.i}</span></td>
+    <td class="num">${w.t}</td><td style="color:var(--ink-2)">${w.n}</td></tr>`).join('')+'</tbody>';
+
+document.getElementById('kpitable').innerHTML =
+  '<thead><tr><th>Indicatore</th><th>Adesso</th><th>Obiettivo</th><th>Come leggerlo</th></tr></thead><tbody>'+
+  D.kpiTable.map(r=>`<tr><td><b>${r.n}</b></td><td class="num" style="color:${r.bad?'var(--crit)':'var(--ink)'}">${r.now}</td>
+    <td class="num">${r.target}</td><td style="color:var(--ink-2)">${r.how}</td></tr>`).join('')+'</tbody>';
+
+document.getElementById('disclaimer').innerHTML = D.disclaimer;
+</script>
+</body>
+</html>

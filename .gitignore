@@ -1,0 +1,15 @@
+# I dati grezzi e i report in chiaro non vanno MAI nel repository:
+# GitHub Pages su piano gratuito richiede un repo pubblico.
+data/
+site/
+dashboard.html
+report.html
+garmin_token.txt
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Stato locale degli strumenti di sviluppo
+.claude/scheduled_tasks.lock
+.impeccable/
