@@ -26,21 +26,29 @@ def main():
         sys.exit(f"Token non leggibile ({e}). Rifai il login con fetch_data.py.")
 
     token = client.dumps()
+    use_file = "--file" in sys.argv
 
-    try:
-        subprocess.run(["pbcopy"], input=token.encode(), check=True)
-        where = "negli appunti"
-    except Exception:
+    if use_file:
         out = Path(__file__).parent.parent / "garmin_token.txt"
         out.write_text(token)
         out.chmod(0o600)
-        where = f"nel file {out} (cancellalo dopo averlo usato)"
+        print(f"Token scritto in: {out}")
+        print(f"Lunghezza: {len(token)} caratteri\n")
+        print("Aprilo, seleziona tutto (Cmd+A) e copia (Cmd+C).")
+        print("CANCELLALO dopo averlo usato:")
+        print(f'  rm "{out}"')
+    else:
+        subprocess.run(["pbcopy"], input=token.encode(), check=True)
+        print(f"Token Garmin copiato negli appunti ({len(token)} caratteri).\n")
+        print("Incollalo ORA con Cmd+V: se copi altro nel frattempo lo perdi")
+        print("(in quel caso rilancia questo comando).\n")
+        print("In alternativa, per averlo in un file che non si perde:")
+        print("  python scripts/export_token.py --file")
 
-    print(f"Token Garmin copiato {where}.")
-    print(f"Lunghezza: {len(token)} caratteri\n")
-    print("Ora su GitHub: Settings → Secrets and variables → Actions → New repository secret")
-    print("  Nome:   GARMIN_TOKEN")
-    print("  Valore: incolla (Cmd+V)")
+    print("\nDove incollarlo:")
+    print("  https://github.com/Andrea-B20/PERFORMANCE/settings/secrets/actions/new")
+    print("  Name:   GARMIN_TOKEN")
+    print("  Secret: il token")
 
 
 if __name__ == "__main__":
