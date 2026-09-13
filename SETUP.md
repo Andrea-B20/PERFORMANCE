@@ -4,31 +4,14 @@ Tre passaggi, una volta sola. Dopo, il report si aggiorna da solo ogni mattina.
 
 ---
 
-## 1. Crea il repository e caricalo
+## 1. Repository — già fatto
 
-Il repository è <https://github.com/Andrea-B20/PERFORMANCE>.
+Il codice è già online su <https://github.com/Andrea-B20/PERFORMANCE>:
+17 file, solo script. Nessun dato, mai.
 
-> **Deve essere pubblico** se hai un piano GitHub gratuito: Pages non funziona su
-> repository privati senza abbonamento. Non è un problema — nel repository finiscono
-> solo gli script, mai i dati: `data/`, `site/`, `report.html` e `dashboard.html`
-> sono esclusi da `.gitignore`, e l'unico file pubblicato contiene i dati **cifrati**.
-
-Dalla cartella del progetto:
-
-```bash
-cd "/Users/andreabracci/TRAINING COACH" && git init && git add . && git status
-```
-
-Controlla che nell'elenco **non** compaiano `data/`, `site/`, `report.html`,
-`dashboard.html` o `garmin_token.txt`. Poi:
-
-```bash
-cd "/Users/andreabracci/TRAINING COACH" && git commit -m "Report allenamento automatizzato" && git branch -M main
-```
-
-```bash
-cd "/Users/andreabracci/TRAINING COACH" && git remote add origin https://github.com/Andrea-B20/PERFORMANCE.git && git push -u origin main
-```
+> Il repository è pubblico perché Pages non funziona sui privati con il piano
+> gratuito. Non è un problema: `.gitignore` tiene fuori `data/`, `site/` e i
+> report in chiaro, e l'unico file pubblicato contiene i dati **cifrati**.
 
 ---
 
@@ -59,13 +42,13 @@ La passphrase con cui sbloccherai il sito. Scegline una lunga e sceglila bene:
 
 ---
 
-## 3. Attiva Pages e fai il primo giro
+## 3. Lancia il primo giro
 
-**Settings → Pages → Source: GitHub Actions** (non "Deploy from a branch").
+**Actions → Report giornaliero → Run workflow.**
 
-Poi **Actions → Report giornaliero → Run workflow** per lanciarlo subito.
+Pages si attiva da sola al primo giro, non devi toccare Settings → Pages.
 
-Il primo giro dura qualche minuto (scarica 180 giorni). Quelli successivi durano
+Il primo giro dura qualche minuto (scarica 120 giorni). Quelli successivi durano
 meno di un minuto, perché i dati già scaricati restano nella cache di Actions.
 
 Al termine il sito è su `https://andrea-b20.github.io/PERFORMANCE/`.

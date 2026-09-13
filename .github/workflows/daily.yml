@@ -43,7 +43,7 @@ jobs:
       - name: Scarica da Garmin
         env:
           GARMIN_TOKEN: ${{ secrets.GARMIN_TOKEN }}
-        run: python -u scripts/fetch_data.py --days 180 --refresh-days 4
+        run: python -u scripts/fetch_data.py --days 120 --refresh-days 4
 
       - name: Genera il sito cifrato
         env:
@@ -57,7 +57,12 @@ jobs:
           path: data/raw
           key: garmin-raw-${{ github.run_id }}
 
+      # enablement attiva Pages da sola al primo giro: nessun passaggio manuale
+      # in Settings → Pages.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
