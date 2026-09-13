@@ -31,6 +31,32 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # Controlla che i secret ci siano prima di fare qualsiasi cosa.
+      # Stampa solo la lunghezza, mai il contenuto.
+      - name: Verifica i secret
+        env:
+          GARMIN_TOKEN: ${{ secrets.GARMIN_TOKEN }}
+          SITE_PASSPHRASE: ${{ secrets.SITE_PASSPHRASE }}
+        run: |
+          ok=1
+          if [ -z "$GARMIN_TOKEN" ]; then
+            echo "::error title=Secret mancante::GARMIN_TOKEN non è impostato."
+            echo "  -> Settings > Secrets and variables > Actions > New repository secret"
+            echo "  -> Name: GARMIN_TOKEN  (generalo con: python scripts/export_token.py --file)"
+            ok=0
+          else
+            echo "GARMIN_TOKEN presente: ${#GARMIN_TOKEN} caratteri (attesi ~4300)"
+            [ "${#GARMIN_TOKEN}" -lt 1000 ] && echo "::warning::Il token sembra troncato: ricopialo per intero."
+          fi
+          if [ -z "$SITE_PASSPHRASE" ]; then
+            echo "::error title=Secret mancante::SITE_PASSPHRASE non è impostato."
+            echo "  -> Name: SITE_PASSPHRASE  (la passphrase con cui sbloccherai il sito)"
+            ok=0
+          else
+            echo "SITE_PASSPHRASE presente: ${#SITE_PASSPHRASE} caratteri"
+          fi
+          [ "$ok" = "1" ] || { echo; echo "Imposta i secret mancanti e rilancia il workflow."; exit 1; }
+
       # I dati grezzi restano solo nella cache di Actions: mai nel repository.
       - name: Ripristina i dati già scaricati
         uses: actions/cache/restore@v4
